@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+storage/uploads/
+coverage/
+server.stdout.log
+server.stderr.log
+server2.stdout.log
+server2.stderr.log

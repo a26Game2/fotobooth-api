@@ -1,0 +1,282 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum BookingStatus {
+  NEW
+  CONTACTED
+  QUOTED
+  DEPOSIT_PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum AdminRole {
+  ADMIN
+  SALES
+}
+
+enum ServiceRole {
+  MAIN
+  ADDON
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model AdminUser {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  name         String
+  role         AdminRole  @default(SALES)
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  auditLogs    AuditLog[]
+}
+
+model AuditLog {
+  id          String     @id @default(cuid())
+  eventId     String     @unique
+  actorUserId String?
+  actorEmail  String?
+  actorName   String
+  actorRole   AdminRole
+  authType    String
+  action      String
+  method      String
+  path        String
+  statusCode  Int
+  entityType  String?
+  entityId    String?
+  ipAddress   String?
+  userAgent   String?
+  requestBody Json?
+  occurredAt  DateTime
+  createdAt   DateTime   @default(now())
+  actor       AdminUser? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([occurredAt])
+  @@index([actorUserId, occurredAt])
+  @@index([entityType, entityId])
+  @@index([method, statusCode])
+}
+
+model Service {
+  id              String                @id @default(cuid())
+  name            String
+  slug            String                @unique
+  description     String?
+  coverImagePath  String?
+  startingPrice   Int                   @default(0)
+  role            ServiceRole           @default(MAIN)
+  mediaType       MediaType?
+  packageName     String?
+  extraHourPrice  Int?
+  note            String?
+  hotLevel        Int                   @default(3)
+  isActive        Boolean               @default(true)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  optionGroups    ServiceOptionGroup[]
+  mainPackages    MainServicePackage[]
+  addonPricing    AddonPricing?
+  availableAddons ServiceAddon[]        @relation("MainServiceAddons")
+  availableFor    ServiceAddon[]        @relation("AddonServiceLinks")
+  bookingAddons   BookingRequestAddon[]
+  cityPricing     ServiceCityPricing[]
+  bookings        BookingRequest[]
+
+  @@index([role, isActive, hotLevel])
+}
+
+model MainServicePackage {
+  id                 String           @id @default(cuid())
+  serviceId          String
+  code               String
+  name               String
+  durationHours      Int?
+  isFullDay          Boolean          @default(false)
+  price              Int?
+  includedMediaCount Int?
+  sortOrder          Int              @default(0)
+  isActive           Boolean          @default(true)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  service            Service          @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  bookings           BookingRequest[]
+
+  @@unique([serviceId, code])
+  @@index([serviceId, sortOrder])
+}
+
+model AddonPricing {
+  id                String  @id @default(cuid())
+  serviceId         String  @unique
+  defaultPrice      Int?
+  includedQuantity  Int     @default(100)
+  incrementQuantity Int     @default(50)
+  incrementPrice    Int?
+  unitLabel         String  @default("sản phẩm")
+  service           Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+}
+
+model ServiceAddon {
+  mainServiceId  String
+  addonServiceId String
+  sortOrder      Int     @default(0)
+  isActive       Boolean @default(true)
+  mainService    Service @relation("MainServiceAddons", fields: [mainServiceId], references: [id], onDelete: Cascade)
+  addonService   Service @relation("AddonServiceLinks", fields: [addonServiceId], references: [id], onDelete: Cascade)
+
+  @@id([mainServiceId, addonServiceId])
+  @@index([addonServiceId])
+}
+
+model ServiceOptionGroup {
+  id            String          @id @default(cuid())
+  serviceId     String
+  key           String
+  title         String
+  selectionMode String          @default("single")
+  sortOrder     Int             @default(0)
+  isRequired    Boolean         @default(false)
+  service       Service         @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  options       ServiceOption[]
+
+  @@unique([serviceId, key])
+}
+
+model ServiceOption {
+  id        String               @id @default(cuid())
+  groupId   String
+  name      String
+  price     Int
+  isActive  Boolean              @default(true)
+  sortOrder Int                  @default(0)
+  group     ServiceOptionGroup   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  items     BookingRequestItem[]
+
+  @@unique([groupId, name])
+}
+
+model City {
+  id               String               @id @default(cuid())
+  name             String
+  slug             String               @unique
+  isAvailable      Boolean              @default(true)
+  defaultTravelFee Int?
+  note             String?
+  sortOrder        Int                  @default(0)
+  cityPricing      ServiceCityPricing[]
+  bookings         BookingRequest[]
+}
+
+model ServiceCityPricing {
+  id                String  @id @default(cuid())
+  serviceId         String
+  cityId            String
+  basePriceOverride Int?
+  travelFeeOverride Int?
+  isAvailable       Boolean @default(true)
+  note              String?
+  service           Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  city              City    @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, cityId])
+}
+
+model BookingRequest {
+  id                    String                @id @default(cuid())
+  bookingCode           String                @unique
+  serviceId             String
+  servicePackageId      String?
+  cityId                String
+  status                BookingStatus         @default(NEW)
+  eventDate             DateTime              @db.Date
+  startTime             String
+  duration              String?
+  location              String
+  eventType             String
+  guestCount            Int
+  customerName          String
+  phone                 String
+  companyName           String?
+  customerNote          String?
+  estimatedTotal        Int?
+  configurationSnapshot Json
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  service               Service               @relation(fields: [serviceId], references: [id])
+  servicePackage        MainServicePackage?   @relation(fields: [servicePackageId], references: [id], onDelete: SetNull)
+  city                  City                  @relation(fields: [cityId], references: [id])
+  items                 BookingRequestItem[]
+  addons                BookingRequestAddon[]
+  notes                 BookingRequestNote[]
+  files                 BookingRequestFile[]
+
+  @@index([servicePackageId])
+}
+
+model BookingRequestAddon {
+  id               String         @id @default(cuid())
+  bookingRequestId String
+  addonServiceId   String?
+  itemName         String
+  quantity         Int
+  defaultPrice     Int?
+  extraBlocks      Int            @default(0)
+  incrementPrice   Int?
+  totalPrice       Int?
+  bookingRequest   BookingRequest @relation(fields: [bookingRequestId], references: [id], onDelete: Cascade)
+  addonService     Service?       @relation(fields: [addonServiceId], references: [id], onDelete: SetNull)
+
+  @@index([bookingRequestId])
+  @@index([addonServiceId])
+}
+
+model BookingRequestItem {
+  id               String         @id @default(cuid())
+  bookingRequestId String
+  optionId         String?
+  groupKey         String
+  itemName         String
+  unitPrice        Int
+  bookingRequest   BookingRequest @relation(fields: [bookingRequestId], references: [id], onDelete: Cascade)
+  option           ServiceOption? @relation(fields: [optionId], references: [id], onDelete: SetNull)
+}
+
+model BookingRequestNote {
+  id               String         @id @default(cuid())
+  bookingRequestId String
+  note             String
+  createdBy        String
+  createdAt        DateTime       @default(now())
+  bookingRequest   BookingRequest @relation(fields: [bookingRequestId], references: [id], onDelete: Cascade)
+}
+
+model BookingRequestFile {
+  id               String         @id @default(cuid())
+  bookingRequestId String
+  fileName         String
+  filePath         String
+  mimeType         String
+  sizeBytes        Int
+  bookingRequest   BookingRequest @relation(fields: [bookingRequestId], references: [id], onDelete: Cascade)
+}
+
+model AppConfiguration {
+  id        Int      @id @default(1)
+  value     Json
+  updatedAt DateTime @updatedAt
+}
