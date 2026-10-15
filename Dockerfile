@@ -4,21 +4,19 @@ FROM node:22-alpine AS base
 WORKDIR /app
 RUN apk add --no-cache openssl
 
-FROM base AS development-deps
+FROM base AS build
+ENV NODE_OPTIONS=--max-old-space-size=384 \
+    npm_config_jobs=1
+
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
-RUN npm ci && npx prisma generate
-
-FROM development-deps AS build
+RUN npm ci --no-audit --no-fund
+RUN npx prisma generate
 COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
-
-FROM base AS production-deps
-ENV NODE_ENV=production
-COPY package.json package-lock.json ./
-COPY prisma ./prisma
-RUN npm ci --omit=dev && npx prisma generate && npm cache clean --force
+RUN npm prune --omit=dev \
+    && npm cache clean --force
 
 FROM base AS runner
 ENV NODE_ENV=production \
@@ -30,7 +28,7 @@ RUN apk add --no-cache dumb-init \
     && addgroup -S api \
     && adduser -S api -G api
 
-COPY --from=production-deps --chown=api:api /app/node_modules ./node_modules
+COPY --from=build --chown=api:api /app/node_modules ./node_modules
 COPY --from=build --chown=api:api /app/dist ./dist
 COPY --chown=api:api package.json package-lock.json ./
 COPY --chown=api:api prisma ./prisma

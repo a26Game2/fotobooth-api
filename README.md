@@ -120,6 +120,8 @@ API_PORT=8080 docker compose --profile production up -d --build
 
 Container tự chạy `prisma migrate deploy` trước khi start API. Nếu hạ tầng đã chạy migration ở CI/CD, đặt `RUN_MIGRATIONS=false`. File booking upload được giữ trong volume `api_uploads`; ảnh cover vẫn lưu trên Supabase Storage.
 
+Dockerfile chỉ chạy một lượt `npm ci` theo thứ tự và giới hạn Node heap ở 384 MB để phù hợp VPS RAM thấp. Với máy chỉ có 1 GB RAM, vẫn nên tạo tối thiểu 1 GB swap trước khi build để tránh Linux OOM kill.
+
 Xem log và cập nhật phiên bản:
 
 ```bash
