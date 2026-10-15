@@ -10,6 +10,26 @@ function secureEqual(received: string, expected: string) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
+export function requireSwaggerBasicAuth(request: Request, response: Response, next: NextFunction) {
+  const authorization = request.header("authorization");
+  if (authorization?.startsWith("Basic ") && config.swaggerUsername && config.swaggerPassword) {
+    const credentials = Buffer.from(authorization.slice(6), "base64").toString("utf8");
+    const separator = credentials.indexOf(":");
+    if (separator >= 0) {
+      const username = credentials.slice(0, separator);
+      const password = credentials.slice(separator + 1);
+      if (secureEqual(username, config.swaggerUsername) && secureEqual(password, config.swaggerPassword)) {
+        response.set("Cache-Control", "private, no-store");
+        return next();
+      }
+    }
+  }
+
+  response.set("WWW-Authenticate", 'Basic realm="Fotobooth API Docs", charset="UTF-8"');
+  response.set("Cache-Control", "no-store");
+  return response.status(401).send("Authentication required");
+}
+
 function authenticateApiKey(request: Request) {
   const apiKey = request.header("x-api-key");
   if (!apiKey || !config.adminApiKey || !secureEqual(apiKey, config.adminApiKey)) return false;

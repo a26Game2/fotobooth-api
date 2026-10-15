@@ -15,6 +15,7 @@ import { authRouter } from "./routes/auth.js";
 import { openApiDocument } from "./openapi.js";
 import { cacheStatus } from "./cache.js";
 import { StorageConfigurationError } from "./storage.js";
+import { requireSwaggerBasicAuth } from "./middleware/auth.js";
 
 fs.mkdirSync(path.join(config.uploadDir, "booking-requests"), { recursive: true });
 const allowedMimeTypes = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
@@ -33,8 +34,8 @@ app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 app.use("/uploads", express.static(config.uploadDir));
 app.get("/", (_request, response) => response.redirect("/docs"));
-app.get("/openapi.json", (_request, response) => response.json(openApiDocument));
-app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument, { customSiteTitle: "T-RED Booking API Docs" }));
+app.get("/openapi.json", requireSwaggerBasicAuth, (_request, response) => response.json(openApiDocument));
+app.use("/docs", requireSwaggerBasicAuth, swaggerUi.serve, swaggerUi.setup(openApiDocument, { customSiteTitle: "T-RED Booking API Docs" }));
 app.get("/health", async (_request, response) => response.json({ ok: true, cache: await cacheStatus() }));
 app.use("/api/public", upload.array("files", 10), publicRouter);
 app.use("/api/auth", authRouter);

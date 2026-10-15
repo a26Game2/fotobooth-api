@@ -19,7 +19,7 @@ Redis chạy qua Docker tại `localhost:16379`. API cache configuration, cities
 
 Admin mutations (`POST`, `PUT`, `PATCH`, `DELETE`) được đưa vào Redis audit queue và cron flush theo batch sang bảng Supabase `AuditLog` mỗi phút. Payload nhạy cảm như password, token, API key và authorization bị che. Nếu Redis không sẵn sàng, audit event fallback ghi thẳng vào Supabase. Cấu hình bằng `AUDIT_LOG_CRON` và `AUDIT_LOG_BATCH_SIZE`.
 
-Swagger UI: `http://localhost:3000/docs` (OpenAPI JSON: `/openapi.json`). Trong Swagger, bấm **Authorize** và nhập `ADMIN_API_KEY` để gọi các endpoint Admin.
+Swagger UI: `http://localhost:3000/docs` (OpenAPI JSON: `/openapi.json`). Cả hai đường dẫn được bảo vệ bằng HTTP Basic Auth. Cấu hình tài khoản riêng qua `SWAGGER_USERNAME`/`SWAGGER_PASSWORD`; nếu bỏ trống, hệ thống dùng `ADMIN_EMAIL`/`ADMIN_PASSWORD`. Sau khi vào Swagger, bấm **Authorize** và nhập `ADMIN_API_KEY` hoặc Bearer token để gọi các endpoint Admin.
 
 ## Endpoints
 
