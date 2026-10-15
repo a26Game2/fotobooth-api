@@ -5,7 +5,7 @@ API V2 cho configurator và sales quản lý yêu cầu booking. Catalog tách `
 ## Chạy local
 
 ```bash
-docker compose up -d
+docker compose up -d redis
 npm install
 npm run db:generate
 npx prisma migrate deploy
@@ -102,3 +102,27 @@ Script idempotent: đổi 7 service cũ sang catalog mới nhưng giữ nguyên 
 Uploads chỉ nhận JPG, PNG, WebP, PDF (tối đa 10 MB/file), lưu vào `storage/uploads/booking-requests`. Khi triển khai Docker production, mount đường dẫn này ra persistent volume theo mô tả nghiệp vụ.
 
 Ảnh cover dịch vụ được upload vào public Supabase Storage bucket `service-covers`. Backend cần `SUPABASE_SERVICE_ROLE_KEY`; tuyệt đối không đưa key này ra frontend. Endpoint nhận `multipart/form-data` với field `cover`, hỗ trợ JPG/PNG/WebP tối đa 10 MB.
+
+## Chạy production bằng Docker
+
+Điền đầy đủ `.env`, đặc biệt `DATABASE_URL`, `DIRECT_URL`, Supabase keys, `ADMIN_API_KEY` và `JWT_SECRET`. Sau đó build và chạy API cùng Redis:
+
+```bash
+docker compose --profile production up -d --build
+docker compose --profile production ps
+```
+
+API mặc định được publish ở cổng `3000`. Có thể đổi cổng host mà không sửa container:
+
+```bash
+API_PORT=8080 docker compose --profile production up -d --build
+```
+
+Container tự chạy `prisma migrate deploy` trước khi start API. Nếu hạ tầng đã chạy migration ở CI/CD, đặt `RUN_MIGRATIONS=false`. File booking upload được giữ trong volume `api_uploads`; ảnh cover vẫn lưu trên Supabase Storage.
+
+Xem log và cập nhật phiên bản:
+
+```bash
+docker compose --profile production logs -f api
+docker compose --profile production up -d --build api
+```
